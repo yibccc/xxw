@@ -28,7 +28,9 @@ def create_app() -> Flask:
     Returns:
         Flask 应用实例
     """
-    app = Flask(__name__)
+    import os
+    static_folder = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static')
+    app = Flask(__name__, static_folder=static_folder, static_url_path='')
 
     # 加载配置
     app.config.from_object(config)

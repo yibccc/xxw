@@ -31,7 +31,7 @@ api.interceptors.response.use(
   }
 )
 
-// 认导出 API 服务
+// 导出 API 服务
 export const authService = {
   register: (username, password) => api.post('/auth/register', { username, password }),
   login: (username, password) => api.post('/auth/login', { username, password }),

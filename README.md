@@ -49,9 +49,6 @@ cd xxw
 ```bash
 # 使用 uv（推荐）
 uv sync
-
-# 或使用 pip
-pip install -r requirements.txt
 ```
 
 ### 3. 配置环境变量
@@ -82,7 +79,10 @@ FLASK_PORT=5000
 # 创建数据库（MySQL）
 mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS timerservice CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 
-# 运行迁移
+# 生成迁移文件（会自动检测模型）
+uv run alembic revision --autogenerate -m "init tables"
+
+# 执行迁移
 uv run alembic upgrade head
 ```
 

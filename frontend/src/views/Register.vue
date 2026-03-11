@@ -4,36 +4,32 @@ import { useRouter } from 'vue-router'
 import { authService } from '../services/api'
 
 const router = useRouter()
-
 const username = ref('')
 const password = ref('')
 const error = ref('')
 const loading = ref(false)
 
-async function handleLogin() {
+const register = async () => {
   error.value = ''
   loading.value = true
-
   try {
-    const response = await authService.login(username.value, password.value)
-    localStorage.setItem('token', response.token)
-    localStorage.setItem('user', JSON.stringify({ id: response.user_id, username: response.username }))
-    router.push('/timers')
+    await authService.register(username.value, password.value)
+    router.push('/login')
   } catch (err) {
-    error.value = err.response?.data?.error || '登录失败'
+    error.value = err.response?.data?.error || '注册失败'
   } finally {
     loading.value = false
   }
 }
 
-function goToRegister() {
-  router.push('/register')
+const goToLogin = () => {
+  router.push('/login')
 }
 </script>
 
 <template>
-  <div class="login-container">
-    <h1>登录</h1>
+  <div class="register-container">
+    <h1>注册</h1>
     <div class="form">
       <div class="form-group">
         <label>用户名</label>
@@ -44,16 +40,16 @@ function goToRegister() {
         <input v-model="password" type="password" placeholder="请输入密码" />
       </div>
       <div v-if="error" class="error">{{ error }}</div>
-      <button @click="handleLogin" :disabled="loading">
-        {{ loading ? '登录中...' : '登录' }}
+      <button @click="register" :disabled="loading">
+        {{ loading ? '注册中...' : '注册' }}
       </button>
-      <div class="link" @click="goToRegister">没有账号？去注册</div>
+      <div class="link" @click="goToLogin">已有账号？去登录</div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.login-container {
+.register-container {
   max-width: 400px;
   margin: 100px auto;
   padding: 30px;

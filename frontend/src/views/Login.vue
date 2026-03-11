@@ -4,58 +4,54 @@ import { useRouter } from 'vue-router'
 import { authService } from '../services/api'
 
 const router = useRouter()
-
 const username = ref('')
 const password = ref('')
 const error = ref('')
 const loading = ref(false)
 
-async function handleRegister() {
+const login = async () => {
   error.value = ''
   loading.value = true
-
   try {
-    await authService.register(username.value, password.value)
-    router.push('/login')
+    const response = await authService.login(username.value, password.value)
+    localStorage.setItem('token', response.token)
+    localStorage.setItem('user', JSON.stringify({ id: response.user_id, username: response.username }))
+    router.push('/timers')
   } catch (err) {
-    error.value = err.response?.data?.error || '注册失败'
+    error.value = err.response?.data?.error || '登录失败'
   } finally {
     loading.value = false
   }
 }
 
-function goToLogin() {
-  router.push('/login')
+const goToRegister = () => {
+  router.push('/register')
 }
 </script>
 
 <template>
-  <div class="register-container">
-    <h1>注册</h1>
-    <div class="form" v-if="!error.includes('Username already exists')">
+  <div class="login-container">
+    <h1>登录</h1>
+    <div class="form">
       <div class="form-group">
         <label>用户名</label>
         <input v-model="username" type="text" placeholder="请输入用户名" />
       </div>
       <div class="form-group">
         <label>密码</label>
-        <input v-model="password" type="password" placeholder="请输入密码（至少6位）" />
+        <input v-model="password" type="password" placeholder="请输入密码" />
       </div>
       <div v-if="error" class="error">{{ error }}</div>
-      <button @click="handleRegister" :disabled="loading">
-        {{ loading ? '注册中...' : '注册' }}
+      <button @click="login" :disabled="loading">
+        {{ loading ? '登录中...' : '登录' }}
       </button>
-      <div class="link" @click="goToLogin">已有账号？去登录</div>
-    </div>
-    <div v-else class="success">
-      <p>注册成功！</p>
-      <div class="link" @click="goToLogin">去登录</div>
+      <div class="link" @click="goToRegister">没有账号？去注册</div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.register-container {
+.login-container {
   max-width: 400px;
   margin: 100px auto;
   padding: 30px;
@@ -87,10 +83,6 @@ input {
 .error {
   color: red;
   margin-bottom: 15px;
-}
-
-.success {
-  text-align: center;
 }
 
 button {

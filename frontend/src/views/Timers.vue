@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { timerService } from '../services/api'
 import sseClient from '../components/SSEClient'
@@ -17,6 +17,34 @@ const newTimer = ref({
   time_of_day: '00:00:00'
 })
 const unreadCount = ref(0)
+const now = ref(Date.now())
+let countdownInterval = null
+
+// 计算倒计时
+function getCountdown(nextFireAt) {
+  if (!nextFireAt) return ''
+  const diff = new Date(nextFireAt).getTime() - now.value
+  if (diff <= 0) return '即将触发'
+
+  const seconds = Math.floor(diff / 1000)
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const secs = seconds % 60
+
+  if (hours > 0) {
+    return `${hours}小时${minutes}分${secs}秒`
+  } else if (minutes > 0) {
+    return `${minutes}分${secs}秒`
+  } else {
+    return `${secs}秒`
+  }
+}
+
+// 格式化下次触发时间
+function formatNextFire(nextFireAt) {
+  if (!nextFireAt) return ''
+  return new Date(nextFireAt).toLocaleString()
+}
 
 async function loadTimers() {
   try {
@@ -104,16 +132,23 @@ onMounted(() => {
   loadTimers()
   sseClient.connect()
 
+  // 每秒更新倒计时
+  countdownInterval = setInterval(() => {
+    now.value = Date.now()
+  }, 1000)
+
   // 监听 SSE 事件
   sseClient.on('timer_fired', (data) => {
     unreadCount.value++
-    // 可以在这里添加 toast 通知
     alert(`定时器 "${data.timer_name}" 已触发！`)
   })
 })
 
 onUnmounted(() => {
   sseClient.disconnect()
+  if (countdownInterval) {
+    clearInterval(countdownInterval)
+  }
 })
 </script>
 
@@ -142,12 +177,13 @@ onUnmounted(() => {
             <span class="type">{{ timer.type }}</span>
             <span class="status" :class="timer.status">{{ timer.status }}</span>
           </div>
-          <div v-if="timer.next_fire_at" class="next-fire">
-            下次触发: {{ new Date(timer.next_fire_at).toLocaleString() }}
+          <div v-if="timer.next_fire_at && timer.status === 'enabled'" class="next-fire">
+            <div>下次触发: {{ formatNextFire(timer.next_fire_at) }}</div>
+            <div class="countdown">倒计时: {{ getCountdown(timer.next_fire_at) }}</div>
           </div>
         </div>
         <div class="timer-actions">
-          <button @click="toggleTimer)Status(timer)">
+          <button @click="toggleTimerStatus(timer)">
             {{ timer.status === 'enabled' ? '暂停' : '启用' }}
           </button>
           <button @click="openEditDialog(timer)">编辑</button>
@@ -180,7 +216,7 @@ onUnmounted(() => {
           <input v-model="newTimer.time_of_day" type="time" step="1" />
         </div>
         <div class="dialog-actions">
-          <button @click="showCreateDialog = false">取消原色
+          <button @click="showCreateDialog = false">取消</button>
           <button @click="createTimer">创建</button>
         </div>
       </div>
@@ -308,6 +344,17 @@ button.delete {
 
 .status.completed {
   background: #9e9e9e;
+}
+
+.next-fire {
+  margin-top: 8px;
+}
+
+.countdown {
+  color: #ff5722;
+  font-weight: bold;
+  font-size: 14px;
+  margin-top: 4px;
 }
 
 .timer-actions {

@@ -1,6 +1,7 @@
 """APScheduler 管理模块"""
 import datetime
 import logging
+from zoneinfo import ZoneInfo
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
@@ -14,6 +15,9 @@ from src.timerservice.timers.timecalc import compute_daily_next_fire_at
 from src.timerservice.sse.hub import sse_hub
 
 logger = logging.getLogger(__name__)
+
+# 统一使用上海时区
+SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
 
 # 全局调度器实例
@@ -87,7 +91,7 @@ def handle_timer_fire(timer_id: int):
         db.flush()  # 获取 event.id
 
         # 更新定时器状态
-        now = datetime.datetime.now()
+        now = datetime.datetime.now(SHANGHAI_TZ)
 
         if timer.type == TimerType.ONCE:
             # once 类型：触发后变为 completed
@@ -147,12 +151,18 @@ def add_scheduler_job(timer: Timer):
 
     # 根据类型创建 trigger
     if timer.type == TimerType.ONCE:
-        trigger = DateTrigger(run_date=timer.fire_at)
+        # 确保 fire_at 是带时区的 datetime，否则会按 UTC 处理导致时区问题
+        fire_at = timer.fire_at
+        if fire_at.tzinfo is None:
+            # naive datetime，添加上海时区
+            fire_at = fire_at.replace(tzinfo=SHANGHAI_TZ)
+        logger.info(f"Adding timer {timer.id}: fire_at={fire_at}, now={datetime.datetime.now(SHANGHAI_TZ)}")
+        trigger = DateTrigger(run_date=fire_at, timezone=SHANGHAI_TZ)
     elif timer.type == TimerType.DAILY:
         hour = timer.time_of_day.hour
         minute = timer.time_of_day.minute
         second = timer.time_of_day.second
-        trigger = CronTrigger(hour=hour, minute=minute, second=second)
+        trigger = CronTrigger(hour=hour, minute=minute, second=second, timezone=SHANGHAI_TZ)
     else:
         raise ValueError(f"Unknown timer type: {timer.type}")
 

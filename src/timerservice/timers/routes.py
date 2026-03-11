@@ -4,11 +4,17 @@ from datetime import time as time_type
 from typing import Optional
 from flask import Blueprint, request, jsonify, g
 
+from sqlalchemy import text
 from src.timerservice.db import SessionLocal
 from src.timerservice.models import Timer, TimerType, TimerStatus
 from src.timerservice.auth.jwt import require_auth
-from src.timerservice.timers.timecalc import compute_once_fire_at, compute_daily_next_fire_at
+from src.timerservice.timers.timecalc import compute_once_fire_at, compute_daily_next_fire_at, SHANGHAI_TZ
 from src.timerservice.scheduler.manager import add_scheduler_job, remove_scheduler_job, update_scheduler_job
+
+
+def get_current_time():
+    """获取当前时间（带上海时区）"""
+    return datetime.datetime.now(SHANGHAI_TZ)
 
 
 
@@ -67,9 +73,7 @@ def create_timer():
 
     db = SessionLocal()
     try:
-        now = db.execute("SELECT NOW()").scalar()
-        if isinstance(now, str):
-            now = datetime.datetime.fromisoformat(now.replace("T", " "))
+        now = get_current_time()
 
         if timer_type == TimerType.ONCE:
             delay_seconds = data.get("delay_seconds")
@@ -230,9 +234,7 @@ def update_timer(timer_id: int):
                 timer.delay_seconds = new_delay
 
                 # 重新计算 fire_at
-                now = db.execute("SELECT NOW()").scalar()
-                if isinstance(now, str):
-                    now = datetime.datetime.fromisoformat(now.replace("T", " "))
+                now = get_current_time()
                 timer.fire_at = compute_once_fire_at(now, new_delay)
                 timer.next_fire_at = timer.fire_at
 
@@ -247,9 +249,7 @@ def update_timer(timer_id: int):
                 timer.time_of_day = new_time_of_day
 
                 # 重新计算 next_fire_at
-                now = db.execute("SELECT NOW()").scalar()
-                if isinstance(now, str):
-                    now = datetime.datetime.fromisoformat(now.replace("T", " "))
+                now = get_current_time()
                 timer.next_fire_at = compute_daily_next_fire_at(now, new_time_of_day)
 
         db.commit()
