@@ -103,4 +103,34 @@ button:disabled {
   color: #42b883;
   cursor: pointer;
 }
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+  .register-container {
+    background: #1a1a1a;
+    border-color: #333;
+  }
+
+  h1 {
+    color: #fff;
+  }
+
+  label {
+    color: #fff;
+  }
+
+  input {
+    background: #333;
+    border-color: #555;
+    color: #fff;
+  }
+
+  input::placeholder {
+    color: #999;
+  }
+
+  .link {
+    color: #42b883;
+  }
+}
 </style>

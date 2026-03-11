@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { timerService } from '../services/api'
+import { timerService, eventService } from '../services/api'
 import sseClient from '../components/SSEClient'
 
 const router = useRouter()
@@ -13,7 +13,9 @@ const editingTimer = ref(null)
 const newTimer = ref({
   name: '',
   type: 'once',
-  delay_seconds: null,
+  delay_hours: 0,
+  delay_minutes: 5,
+  delay_seconds: 0,
   time_of_day: '00:00:00'
 })
 const unreadCount = ref(0)
@@ -54,14 +56,34 @@ async function loadTimers() {
   }
 }
 
+async function loadUnreadCount() {
+  try {
+    // 获取未读事件数量
+    const events = await eventService.list({ unread_only: 1 })
+    unreadCount.value = events.length
+  } catch (err) {
+    console.error('获取未读数量失败:', err)
+  }
+}
+
 async function createTimer() {
   try {
-    await timerService.create(newTimer.value)
+    const data = { ...newTimer.value }
+    // 将时分秒转换为秒
+    if (data.type === 'once') {
+      data.delay_seconds = data.delay_hours * 3600 + data.delay_minutes * 60 + data.delay_seconds
+      delete data.delay_hours
+      delete data.delay_minutes
+      delete data.time_of_day
+    }
+    await timerService.create(data)
     showCreateDialog.value = false
     newTimer.value = {
       name: '',
       type: 'once',
-      delay_seconds: null,
+      delay_hours: 0,
+      delay_minutes: 5,
+      delay_seconds: 0,
       time_of_day: '00:00:00'
     }
     loadTimers()
@@ -109,27 +131,28 @@ function openEditDialog(timer) {
   showEditDialog.value = true
 }
 
-function toggleTimerStatus(timer) {
-  const newStatus = timer.status === 'enabled' ? 'paused' : 'enabled'
-  timerService.update(timer.id, { status: newStatus }).then(() => {
-    loadTimers()
-  }).catch(err => {
-    alert(err.response?.data?.error || '操作失败')
-  })
-}
 
 function goToEvents() {
   router.push('/events')
 }
 
-function logout() {
-  localStorage.removeItem('token')
-  localStorage.removeItem('user')
-  router.push('/login')
+// 保存回调引用，用于移除
+async function handleTimerFired(data) {
+  alert(`定时器 "${data.timer_name}" 已触发！`)
+  // 点击确定后自动标记为已读并刷新列表
+  try {
+    await eventService.ack(data.event_id)
+    unreadCount.value = Math.max(0, unreadCount.value - 1)
+    // 刷新定时器列表以更新下次触发时间
+    loadTimers()
+  } catch (err) {
+    console.error('标记已读失败:', err)
+  }
 }
 
 onMounted(() => {
   loadTimers()
+  loadUnreadCount()
   sseClient.connect()
 
   // 每秒更新倒计时
@@ -137,14 +160,12 @@ onMounted(() => {
     now.value = Date.now()
   }, 1000)
 
-  // 监听 SSE 事件
-  sseClient.on('timer_fired', (data) => {
-    unreadCount.value++
-    alert(`定时器 "${data.timer_name}" 已触发！`)
-  })
+  // 监听 SSE 事件（保存引用以便移除）
+  sseClient.on('timer_fired', handleTimerFired)
 })
 
 onUnmounted(() => {
+  sseClient.off('timer_fired', handleTimerFired)  // 移除监听器
   sseClient.disconnect()
   if (countdownInterval) {
     clearInterval(countdownInterval)
@@ -161,7 +182,6 @@ onUnmounted(() => {
           {{ unreadCount }} 条未读事件
         </div>
         <button @click="openCreateDialog">+ 新建定时器</button>
-        <button @click="logout">退出</button>
       </div>
     </div>
 
@@ -183,9 +203,6 @@ onUnmounted(() => {
           </div>
         </div>
         <div class="timer-actions">
-          <button @click="toggleTimerStatus(timer)">
-            {{ timer.status === 'enabled' ? '暂停' : '启用' }}
-          </button>
           <button @click="openEditDialog(timer)">编辑</button>
           <button @click="deleteTimer(timer)" class="delete">删除</button>
         </div>
@@ -207,9 +224,22 @@ onUnmounted(() => {
             <option value="daily">每日定时</option>
           </select>
         </div>
-        <div v-if="newTimer.type === 'once'" class="form-group">
-          <label>延迟（秒）</label>
-          <input v-model.number="newTimer.delay_seconds" type="number" min="1" max="86400" />
+        <div v-if="newTimer.type === 'once'" class="form-group time-input-group">
+          <label>延迟时间</label>
+          <div class="time-inputs">
+            <div class="time-input-item">
+              <input v-model.number="newTimer.delay_hours" type="number" min="0" max="23" />
+              <span>时</span>
+            </div>
+            <div class="time-input-item">
+              <input v-model.number="newTimer.delay_minutes" type="number" min="0" max="59" />
+              <span>分</span>
+            </div>
+            <div class="time-input-item">
+              <input v-model.number="newTimer.delay_seconds" type="number" min="0" max="59" />
+              <span>秒</span>
+            </div>
+          </div>
         </div>
         <div v-if="newTimer.type === 'daily'" class="form-group">
           <label>触发时间 (HH:MM:SS)</label>
@@ -226,13 +256,6 @@ onUnmounted(() => {
     <div v-if="showEditDialog && editingTimer" class="dialog-overlay" @click.self="showEditDialog = false">
       <div class="dialog">
         <h2>编辑定时器</h2>
-        <div class="form-group">
-          <label>状态</label>
-          <select v-model="editingTimer.status">
-            <option value="enabled">启用</option>
-            <option value="paused">暂停</option>
-          </select>
-        </div>
         <div v-if="editingTimer.type === 'once'" class="form-group">
           <label>延迟（秒）</label>
           <input v-model.number="editingTimer.delay_seconds" type="number" min="1" max="86400" />
@@ -408,5 +431,71 @@ button.delete {
 .empty {
   text-align: center;
   color: #999;
+}
+
+/* 时分秒选择器 */
+.time-input-group label {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.time-inputs {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.time-input-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.time-input-item input {
+  width: 60px;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.time-input-item span {
+  color: #666;
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+  .dialog {
+    background: #1a1a1a;
+    color: #fff;
+  }
+
+  .dialog h2 {
+    color: #fff;
+  }
+
+  .form-group label {
+    color: #fff;
+  }
+
+  .form-group input,
+  .form-group select {
+    background: #333;
+    border-color: #555;
+    color: #fff;
+  }
+
+  .form-group input::placeholder {
+    color: #999;
+  }
+
+  .time-input-item input {
+    background: #333;
+    border-color: #555;
+    color: #fff;
+  }
+
+  .time-input-item span {
+    color: #aaa;
+  }
 }
 </style>

@@ -7,7 +7,8 @@
 - ✅ 用户注册与登录（JWT 认证）
 - ✅ 一次性定时器（once）：延迟 N 秒后触发
 - ✅ 每日定时器（daily）：每天指定时间触发
-- ✅ 定时器 CRUD（创建、查看、编辑、暂停、删除）
+- ✅ 定时器 CRUD（创建、查看、编辑、删除）
+- ✅ 定时器创建后自动启用
 - ✅ 事件历史记录与已读/未读状态管理
 - ✅ SSE 实时推送定时器触发事件
 - ✅ Vue 3 前端界面
@@ -79,7 +80,7 @@ FLASK_PORT=5000
 # 创建数据库（MySQL）
 mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS timerservice CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 
-# 生成迁移文件（会自动检测模型）
+# 生成迁移文件（会自动检测模型,已生成，下面的命令不可使用时重新使用这条命令生成）
 uv run alembic revision --autogenerate -m "init tables"
 
 # 执行迁移

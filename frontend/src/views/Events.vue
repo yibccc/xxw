@@ -136,4 +136,41 @@ button {
   color: #999;
   padding: 40px;
 }
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+  .header h1 {
+    color: #fff;
+  }
+
+  .event-item {
+    background: #1a1a1a;
+    border-color: #333;
+  }
+
+  .event-item.unread {
+    background: #1a2a3a;
+  }
+
+  .event-info h3 {
+    color: #fff;
+  }
+
+  .meta {
+    color: #aaa;
+  }
+
+  .type {
+    background: #1a3a5a;
+    color: #6ab0ff;
+  }
+
+  .time {
+    color: #aaa;
+  }
+
+  .empty {
+    color: #666;
+  }
+}
 </style>

@@ -197,7 +197,6 @@ def update_timer(timer_id: int):
 
     请求体:
         {
-            "status": "enabled" | "paused",
             "delay_seconds": int,  # only for once type
             "time_of_day": "HH:MM:SS"  # only for daily type
         }
@@ -220,9 +219,9 @@ def update_timer(timer_id: int):
         if timer.status in [TimerStatus.COMPLETED, TimerStatus.DELETED]:
             return jsonify({"error": f"Cannot update timer with status '{timer.status}'"}), 400
 
-        # 更新状态
+        # 定时器创建后即为启用状态，不支持暂停
         new_status = data.get("status")
-        if new_status in [TimerStatus.ENABLED, TimerStatus.PAUSED]:
+        if new_status == TimerStatus.ENABLED:
             timer.status = new_status
 
         # 更新时间参数

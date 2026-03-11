@@ -16,6 +16,10 @@ def event_to_dict(event: TimerEvent) -> dict:
         "id": event.id,
         "user_id": event.user_id,
         "timer_id": event.timer_id,
+        "timer_name": event.timer.name if event.timer else None,
+        "event_type": "timer_fired",
+        "is_read": event.read_at is not None,
+        "created_at": event.fired_at.isoformat() if event.fired_at else None,
         "fired_at": event.fired_at.isoformat() if event.fired_at else None,
         "read_at": event.read_at.isoformat() if event.read_at else None,
     }

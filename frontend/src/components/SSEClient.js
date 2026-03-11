@@ -76,17 +76,21 @@ class SSEClient {
       // 跳过注释行
       if (line.startsWith(':')) continue
 
+      // 分别检查 event 和 data（不是 if-else，让两者都能被处理）
       const eventMatch = line.match(/^event:\s*(.+)$/m)
       const dataMatch = line.match(/^data:\s*(.+)$/m)
 
       if (eventMatch) {
         this.currentEvent = eventMatch[1]
-      } else if (dataMatch && this.currentEvent) {
+      }
+
+      // 独立的 if 判断，这样 data 行即使和 event 行在同一块中也能被处理
+      if (dataMatch && this.currentEvent) {
         try {
           const data = JSON.parse(dataMatch[1])
           this.emit(this.currentEvent, data)
         } catch (e) {
-          console.error('Failed to parse SSE data:', e)
+          console.error('[SSE] Failed to parse SSE data:', e)
         }
       }
     }

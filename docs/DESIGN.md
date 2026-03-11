@@ -81,7 +81,7 @@
 | user_id | INT | 所属用户 | FOREIGN KEY(users.id), NOT NULL, INDEX |
 | name | VARCHAR(200) | 定时器名称 | NOT NULL |
 | type | ENUM | 类型 | 'once' 或 'daily' |
-| status | ENUM | 状态 | 'enabled', 'paused', 'completed', 'deleted' |
+| status | ENUM | 状态 | 'enabled', 'completed', 'deleted' |
 | delay_seconds | INT | 延迟秒数 (once 类型) | NULL, 1~86400 |
 | time_of_day | TIME | 每日触发时间 (daily 类型) | NULL |
 | fire_at | DATETIME | 计划触发时间 (once) | NULL, INDEX |
@@ -91,10 +91,11 @@
 | updated_at | DATETIME | 更新时间 | NOT NULL, DEFAULT NOW(), ON UPDATE NOW() |
 
 **状态说明**：
-- `enabled`: 启用中，定时器正常执行
-- `paused`: 已暂停，不会触发
+- `enabled`: 启用中，定时器正常执行（创建后自动启用）
 - `completed`: 已完成 (once 类型触发后)
 - `deleted`: 已删除（软删除）
+
+> 注意：定时器创建后自动启用，不支持暂停功能
 
 **索引**：
 - `idx_user_status(user_id, status)`: 按用户和状态查询
@@ -107,6 +108,10 @@
 | id | INT | 主键 | PRIMARY KEY, AUTO_INCREMENT |
 | user_id | INT | 所属用户 | FOREIGN KEY(users.id), NOT NULL, INDEX |
 | timer_id | INT | 关联定时器 | FOREIGN KEY(timers.id), NOT NULL, INDEX |
+| timer_name | VARCHAR(200) | 定时器名称 | (关联查询) |
+| event_type | VARCHAR(50) | 事件类型 | 默认 'timer_fired' |
+| is_read | BOOLEAN | 是否已读 | 由 read_at 计算 |
+| created_at | DATETIME | 创建时间 | 同 fired_at |
 | fired_at | DATETIME | 触发时间 | NOT NULL, INDEX |
 | read_at | DATETIME | 已读时间 | NULL, INDEX |
 
@@ -283,11 +288,12 @@ Authorization: Bearer <token>
 **请求**：
 ```json
 {
-  "status": "paused",        // enabled | paused
   "delay_seconds": 7200,     // 仅 once 类型
   "time_of_day": "09:00:00"  // 仅 daily 类型
 }
 ```
+
+> 注意：定时器创建后自动启用，不支持通过 API 暂停
 
 **响应 200**：同创建响应
 
@@ -325,6 +331,10 @@ Authorization: Bearer <token>
     "id": 1,
     "user_id": 1,
     "timer_id": 1,
+    "timer_name": "提醒我喝水",
+    "event_type": "timer_fired",
+    "is_read": false,
+    "created_at": "2026-03-11T14:37:00",
     "fired_at": "2026-03-11T14:37:00",
     "read_at": null
   }
@@ -496,6 +506,25 @@ class SSEClient {
 
 - **开发**: 使用 Vite 开发服务器，代理 API 到后端
 - **生产**: 构建到 `src/timerservice/static/`，由 Flask 托管
+
+### 功能特性
+
+#### 定时器创建
+- 支持时分秒输入：更直观地设置延迟时间
+- 创建后自动启用：无需手动点击启用
+
+#### 用户交互
+- 退出登录按钮：导航栏提供登出功能
+- 定时器触发后自动标记已读：用户确认提示后自动处理
+- 未读事件数量实时显示
+
+#### 深色模式支持
+- 支持系统级深色模式（`prefers-color-scheme: dark`）
+- 覆盖登录、注册、定时器列表、事件中心等页面
+
+#### SSE 客户端优化
+- 修复多行事件解析：event 和 data 行可在同一块中独立处理
+- 统一的日志前缀 `[SSE]` 便于调试
 
 ## 部署建议
 
