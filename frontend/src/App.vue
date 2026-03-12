@@ -2,19 +2,37 @@
 import { computed, onMounted } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 
+import BaseModal from './components/ui/BaseModal.vue'
 import ToastStack from './components/ui/ToastStack.vue'
 import { useSession } from './composables/useSession'
 
 const route = useRoute()
 const router = useRouter()
-const { state, initializeSession, logout, removeToast } = useSession()
+const { state, initializeSession, logout, acknowledgePendingAlert, removeToast, pushToast } = useSession()
 
 const isAuthRoute = computed(() => ['/login', '/register'].includes(route.path))
 const showNav = computed(() => state.user && !isAuthRoute.value)
+const currentAlert = computed(() => state.pendingAlerts[0] ?? null)
 
 async function handleLogout() {
   logout()
   await router.push('/login')
+}
+
+async function confirmTimerAlert() {
+  if (!currentAlert.value) {
+    return
+  }
+
+  try {
+    await acknowledgePendingAlert()
+  } catch (error) {
+    pushToast({
+      tone: 'danger',
+      title: '确认失败',
+      message: error.response?.data?.error || '事件确认失败，请稍后重试。',
+    })
+  }
 }
 
 onMounted(() => {
@@ -57,6 +75,26 @@ onMounted(() => {
         <h1>正在载入会话</h1>
       </div>
     </div>
+
+    <BaseModal
+      :open="Boolean(currentAlert)"
+      title="定时器已触发"
+      description="请确认这条提醒，确认后该事件会自动标记为已读。"
+      width="520px"
+      :closable="false"
+      :closeOnBackdrop="false"
+    >
+      <div v-if="currentAlert" class="alert-modal">
+        <p class="alert-modal__label">定时器名称</p>
+        <h3>{{ currentAlert.timerName }}</h3>
+        <p class="alert-modal__time">
+          触发时间：{{ new Date(currentAlert.firedAt).toLocaleString() }}
+        </p>
+      </div>
+      <template #actions>
+        <button class="button" type="button" @click="confirmTimerAlert">确认并标记已读</button>
+      </template>
+    </BaseModal>
 
     <ToastStack :toasts="state.toasts" @dismiss="removeToast" />
   </div>
@@ -196,6 +234,27 @@ onMounted(() => {
   font-size: 0.76rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.alert-modal {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.alert-modal__label {
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.alert-modal h3 {
+  font-size: 1.4rem;
+  line-height: 1.2;
+}
+
+.alert-modal__time {
   color: var(--text-muted);
 }
 

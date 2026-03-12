@@ -16,6 +16,14 @@ defineProps({
     type: String,
     default: '560px',
   },
+  closable: {
+    type: Boolean,
+    default: true,
+  },
+  closeOnBackdrop: {
+    type: Boolean,
+    default: true,
+  },
 })
 
 defineEmits(['close'])
@@ -23,14 +31,14 @@ defineEmits(['close'])
 
 <template>
   <teleport to="body">
-    <div v-if="open" class="modal-backdrop" @click.self="$emit('close')">
+    <div v-if="open" class="modal-backdrop" @click.self="closeOnBackdrop && $emit('close')">
       <section class="modal-panel" :style="{ maxWidth: width }">
         <header class="modal-panel__header">
           <div>
             <h2>{{ title }}</h2>
             <p v-if="description" class="modal-panel__description">{{ description }}</p>
           </div>
-          <button class="button ghost" type="button" @click="$emit('close')">关闭</button>
+          <button v-if="closable" class="button ghost" type="button" @click="$emit('close')">关闭</button>
         </header>
         <div class="modal-panel__body">
           <slot />

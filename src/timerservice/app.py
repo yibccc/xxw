@@ -1,5 +1,7 @@
 """Flask 应用工厂"""
-from flask import Flask
+from pathlib import Path
+
+from flask import Flask, abort, send_from_directory
 
 from .config import config
 from .db import SessionLocal
@@ -12,9 +14,8 @@ def create_app() -> Flask:
     Returns:
         Flask 应用实例
     """
-    import os
-    static_folder = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static')
-    app = Flask(__name__, static_folder=static_folder, static_url_path='')
+    static_folder = Path(__file__).resolve().parent / "static"
+    app = Flask(__name__, static_folder=None)
 
     # 加载配置
     app.config.from_object(config)
@@ -41,5 +42,21 @@ def create_app() -> Flask:
     @app.route("/health")
     def health():
         return {"status": "ok"}
+
+    @app.route("/", defaults={"path": ""})
+    @app.route("/<path:path>")
+    def serve_frontend(path: str):
+        if path.startswith("api/") or path == "health":
+            abort(404)
+
+        requested = (static_folder / path).resolve() if path else None
+        if requested and requested.is_file() and static_folder in requested.parents:
+            return send_from_directory(static_folder, path)
+
+        index_file = static_folder / "index.html"
+        if index_file.exists():
+            return send_from_directory(static_folder, "index.html")
+
+        abort(404)
 
     return app

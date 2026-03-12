@@ -16,6 +16,7 @@ const state = reactive({
   unreadCount: 0,
   sseConnected: false,
   toasts: [],
+  pendingAlerts: [],
 })
 
 let sessionInitialized = false
@@ -43,10 +44,11 @@ function handleSseStatus(status) {
 
 function handleTimerFired(event) {
   state.unreadCount += 1
-  pushToast({
-    tone: 'accent',
-    title: '定时器触发',
-    message: `“${event.timer_name}” 已到达触发时间。`,
+  state.pendingAlerts.push({
+    eventId: event.event_id,
+    timerId: event.timer_id,
+    timerName: event.timer_name || '未命名定时器',
+    firedAt: event.fired_at,
   })
 }
 
@@ -56,6 +58,7 @@ function resetSessionState() {
   state.user = null
   state.unreadCount = 0
   state.sseConnected = false
+  state.pendingAlerts = []
 }
 
 function setSession(token, user) {
@@ -91,6 +94,23 @@ export async function refreshUnreadCount() {
   const events = await eventService.list({ unread_only: 1 })
   state.unreadCount = events.length
   return state.unreadCount
+}
+
+export async function acknowledgePendingAlert() {
+  const alert = state.pendingAlerts[0]
+  if (!alert) {
+    return
+  }
+
+  await eventService.ack(alert.eventId)
+  state.pendingAlerts.shift()
+  state.unreadCount = Math.max(0, state.unreadCount - 1)
+
+  pushToast({
+    tone: 'accent',
+    title: '事件已确认',
+    message: `“${alert.timerName}” 已标记为已读。`,
+  })
 }
 
 export async function initializeSession() {
@@ -157,6 +177,7 @@ export function useSession() {
     loginWithPassword,
     logout,
     refreshUnreadCount,
+    acknowledgePendingAlert,
     pushToast,
     removeToast,
   }
