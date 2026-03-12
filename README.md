@@ -134,6 +134,44 @@ uv run python main.py
 
 访问 `http://localhost:5000` 即可使用完整应用。
 
+### Docker 部署
+
+#### 前置要求
+
+- Docker 20.10+
+- Docker Compose 2.0+
+
+#### 启动服务
+
+```bash
+# 启动所有服务
+docker-compose up -d
+
+# 查看日志
+docker-compose logs -f
+
+# 停止服务
+docker-compose down
+```
+
+访问 `http://localhost:5000` 即可使用应用。
+
+#### 数据持久化
+
+MySQL 数据存储在 Docker 卷中，重启后数据不丢失。
+
+如需完全删除数据：
+
+```bash
+docker-compose down -v
+```
+
+#### 重新构建
+
+```bash
+docker-compose build --no-cache
+```
+
 ## API 文档
 
 详细的 API 设计文档请参考 [docs/DESIGN.md](docs/DESIGN.md)。
