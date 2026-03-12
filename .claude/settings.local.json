@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run dev)",
+      "Bash(git add README.md docs/DESIGN.md .gitignore frontend/src/App.vue frontend/src/components/SSEClient.js frontend/src/views/Events.vue frontend/src/views/Login.vue frontend/src/views/Register.vue frontend/src/views/Timers.vue src/timerservice/events/routes.py src/timerservice/timers/routes.py)",
+      "Bash(git commit:*)",
+      "Bash(git checkout -b feature/docker-compose)",
+      "Bash(git add Dockerfile.backend)",
+      "Bash(git add Dockerfile.frontend)",
+      "Bash(git add docker-compose.yml)",
+      "Bash(git add .dockerignore)",
+      "Bash(git add .env.production)",
+      "Bash(git add README.md)",
+      "Bash(git checkout main)",
+      "Bash(git merge feature/docker-compose --no-ff -m \"feat: 添加 Docker Compose 部署支持\")",
+      "Bash(git stash)",
+      "Bash(git branch -d feature/docker-compose)",
+      "Bash(git push)"
+    ]
+  }
+}

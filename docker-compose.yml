@@ -36,24 +36,7 @@ services:
       - FLASK_PORT=5000
     ports:
       - "5000:5000"
-    volumes:
-      - frontend_static:/app/src/timerservice/static
-
-  frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile.frontend
-    container_name: xxw-frontend
-    restart: unless-stopped
-    volumes:
-      - ./src/timerservice/static:/output
-    depends_on:
-      - backend
-    # 前端构建完成后自动停止，不需要持续运行
 
 volumes:
   mysql_data:
-    driver: local
-
-  frontend_static:
     driver: local
