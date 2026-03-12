@@ -40,7 +40,6 @@ class TimerType:
 class TimerStatus:
     """定时器状态常量"""
     ENABLED = "enabled"
-    PAUSED = "paused"
     COMPLETED = "completed"
     DELETED = "deleted"
 
@@ -54,7 +53,7 @@ class Timer(Base):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     type: Mapped[str] = mapped_column(SQLEnum("once", "daily", name="timer_type"), nullable=False)
     status: Mapped[str] = mapped_column(
-        SQLEnum("enabled", "paused", "completed", "deleted", name="timer_status"),
+        SQLEnum("enabled", "completed", "deleted", name="timer_status"),
         nullable=False,
         default=TimerStatus.ENABLED
     )

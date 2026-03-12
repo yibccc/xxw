@@ -121,32 +121,6 @@ def test_get_timer_not_found(client, test_user_token):
     assert response.status_code == 404
 
 
-def test_update_timer_pause(client, db_session, test_user, test_user_token):
-    """测试暂停定时器"""
-    # 创建一个定时器
-    from src.timerservice.models import Timer, TimerType, TimerStatus
-    timer = Timer(
-        user_id=test_user.id,
-        name='Update Test Timer',
-        type=TimerType.ONCE,
-        status=TimerStatus.ENABLED,
-        delay_seconds=5,
-        fire_at=datetime.datetime.now(),
-        next_fire_at=datetime.datetime.now()
-    )
-    db_session.add(timer)
-    db_session.commit()
-
-    # 暂停定时器
-    response = client.patch(f'/api/timers/{timer.id}', json={
-        'status': 'paused'
-    }, headers={'Authorization': f'Bearer {test_user_token}'})
-
-    assert response.status_code == 200
-    data = response.get_json()
-    assert data['status'] == 'paused'
-
-
 def test_delete_timer(client, db_session, test_user, test_user_token):
     """测试软删除定时器"""
     # 创建一个定时器

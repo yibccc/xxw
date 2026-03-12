@@ -108,12 +108,13 @@
 | id | INT | 主键 | PRIMARY KEY, AUTO_INCREMENT |
 | user_id | INT | 所属用户 | FOREIGN KEY(users.id), NOT NULL, INDEX |
 | timer_id | INT | 关联定时器 | FOREIGN KEY(timers.id), NOT NULL, INDEX |
-| timer_name | VARCHAR(200) | 定时器名称 | (关联查询) |
-| event_type | VARCHAR(50) | 事件类型 | 默认 'timer_fired' |
-| is_read | BOOLEAN | 是否已读 | 由 read_at 计算 |
-| created_at | DATETIME | 创建时间 | 同 fired_at |
-| fired_at | DATETIME | 触发时间 | NOT NULL, INDEX |
+| fired_at | DATETIME | 触发时间 | NOT NULL, DEFAULT NOW(), INDEX |
 | read_at | DATETIME | 已读时间 | NULL, INDEX |
+
+**计算字段**（非数据库字段，通过关联或属性计算）：
+- `timer_name`: 通过 `timer.name` 关联查询获取
+- `event_type`: 固定为 `'timer_fired'`
+- `is_read`: 通过 `read_at is not None` 计算
 
 **索引**：
 - `idx_user_fired(user_id, fired_at)`: 按用户和时间查询
@@ -252,7 +253,7 @@ Authorization: Bearer <token>
 ```
 
 **查询参数**：
-- `status`: 过滤状态 (enabled/paused/completed)
+- `status`: 过滤状态 (enabled/completed/deleted)
 - `type`: 过滤类型 (once/daily)
 
 **响应 200**：
@@ -293,7 +294,7 @@ Authorization: Bearer <token>
 }
 ```
 
-> 注意：定时器创建后自动启用，不支持通过 API 暂停
+> 注意：定时器创建后自动启用，不支持暂停功能
 
 **响应 200**：同创建响应
 
@@ -340,6 +341,8 @@ Authorization: Bearer <token>
   }
 ]
 ```
+
+> 注意：`timer_name`、`event_type`、`is_read`、`created_at` 为计算字段，非数据库实际存储字段
 
 #### POST /api/events/:id/ack
 
@@ -462,8 +465,6 @@ data: {"event_id": 1, "timer_id": 1, "timer_name": "提醒我喝水", "fired_at"
 ### 数据库同步
 
 - **创建定时器**: 立即添加 Job (如果 status=enabled)
-- **暂停定时器**: 移除 Job
-- **恢复定时器**: 重新添加 Job
 - **更新时间**: 重建 Job
 - **删除定时器**: 移除 Job
 

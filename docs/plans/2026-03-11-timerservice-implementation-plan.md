@@ -124,7 +124,7 @@
 
  关键点：
 
- - Timer.status：enabled/paused/completed/deleted
+ - Timer.status：enabled/completed/deleted
 
  - Timer.type：once/daily
 
@@ -238,9 +238,7 @@
 
  - PATCH /api/timers/<id>
 
-   - status：enabled/paused
-
-   - once 改 delay\_seconds：仅允许 status!=completed/deleted 时；重算 fire\_at/next\_fire\_at
+   - once 改 delay\_seconds：仅允许 status=enabled 时；重算 fire\_at/next\_fire\_at
 
    - daily 改 time\_of\_day：重算 next\_fire\_at
 
@@ -266,13 +264,13 @@
 
  - once：
 
-   - enabled/paused 允许改 delay
+   - enabled 允许改 delay
 
    - completed/deleted 不允许改
 
  - daily：
 
-   - enabled/paused 允许改 time\_of\_day
+   - enabled 允许改 time\_of\_day
 
    - deleted 不允许改
 
@@ -437,10 +435,6 @@
  在 timers 修改后调用 scheduler manager：
 
  - create timer：立即注册 job（enabled 才注册）
-
- - pause：移除 job
-
- - enable：注册 job
 
  - update time：重建 job
 

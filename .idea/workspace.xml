@@ -2,25 +2,11 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="92d1145e-0a58-480d-9f51-5cd1b2f05e46" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/xxw.iml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/alembic/env.py" beforeDir="false" afterPath="$PROJECT_DIR$/alembic/env.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/frontend/src/components/SSEClient.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/frontend/src/router.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/frontend/src/services/api.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/frontend/src/views/Events.vue" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/frontend/src/views/Login.vue" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/frontend/src/views/Register.vue" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/frontend/src/views/Timers.vue" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/pyproject.toml" beforeDir="false" afterPath="$PROJECT_DIR$/pyproject.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/timerservice/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/timerservice/app.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/timerservice/timers/routes.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/timerservice/timers/routes.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/uv.lock" beforeDir="false" afterPath="$PROJECT_DIR$/uv.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/alembic/versions/29fb5bb84041_init_tables.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/DESIGN.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/DESIGN.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/plans/2026-03-11-timerservice-implementation-plan.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/plans/2026-03-11-timerservice-implementation-plan.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/timerservice/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/timerservice/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/test_timers.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_timers.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
