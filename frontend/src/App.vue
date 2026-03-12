@@ -1,111 +1,218 @@
 <script setup>
-import { computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted } from 'vue'
+import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 
+import ToastStack from './components/ui/ToastStack.vue'
+import { useSession } from './composables/useSession'
+
+const route = useRoute()
 const router = useRouter()
+const { state, initializeSession, logout, removeToast } = useSession()
 
-const showNav = computed(() => {
-  return ['/login', '/register'].includes(router.currentRoute.value.path)
-})
+const isAuthRoute = computed(() => ['/login', '/register'].includes(route.path))
+const showNav = computed(() => state.user && !isAuthRoute.value)
 
-function logout() {
-  localStorage.removeItem('token')
-  localStorage.removeItem('user')
-  router.push('/login')
+async function handleLogout() {
+  logout()
+  await router.push('/login')
 }
+
+onMounted(() => {
+  initializeSession()
+})
 </script>
 
 <template>
-  <div id="app">
-    <nav v-if="!showNav" class="navbar">
-      <div class="nav-brand">定时器服务</div>
+  <div id="app" class="app-shell">
+    <nav v-if="showNav" class="navbar">
+      <div class="nav-brand">
+        <span class="nav-brand__mark"></span>
+        <div>
+          <div class="nav-brand__title">定时器服务</div>
+          <div class="nav-brand__subtitle">Live scheduling workspace</div>
+        </div>
+      </div>
       <div class="nav-links">
-        <router-link to="/timers" active-class="active">定时器</router-link>
-        <router-link to="/events" active-class="active">事件</router-link>
-        <button class="logout-btn" @click="logout">退出</button>
+        <RouterLink to="/timers" active-class="active">定时器</RouterLink>
+        <RouterLink to="/events" active-class="active">
+          事件
+          <span v-if="state.unreadCount" class="nav-pill">{{ state.unreadCount }}</span>
+        </RouterLink>
+        <div class="nav-meta">
+          <span class="status-chip" :data-online="state.sseConnected">
+            {{ state.sseConnected ? '实时连接正常' : '实时连接重连中' }}
+          </span>
+          <span class="user-chip">{{ state.user?.username }}</span>
+          <button class="button danger" type="button" @click="handleLogout">退出</button>
+        </div>
       </div>
     </nav>
-    <router-view />
+
+    <main v-if="state.ready" class="app-content">
+      <RouterView />
+    </main>
+    <div v-else class="boot-screen">
+      <div class="boot-screen__panel">
+        <p class="boot-screen__eyebrow">Preparing workspace</p>
+        <h1>正在载入会话</h1>
+      </div>
+    </div>
+
+    <ToastStack :toasts="state.toasts" @dismiss="removeToast" />
   </div>
 </template>
 
 <style>
-#app {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  max-width: 100%;
-  margin: 0;
-  padding: 0;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  padding: 0;
+.app-shell {
+  min-height: 100vh;
 }
 
 .navbar {
-  background: #2c3e50;
-  padding: 0 20px;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  backdrop-filter: blur(14px);
+  background: rgba(255, 249, 241, 0.82);
+  border-bottom: 1px solid rgba(123, 92, 55, 0.14);
+  padding: 1rem 1.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  height: 60px;
+  gap: 1rem;
 }
 
 .nav-brand {
-  color: white;
-  font-size: 20px;
-  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.nav-brand__mark {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  box-shadow: 0 0 0 8px rgba(205, 124, 54, 0.12);
+}
+
+.nav-brand__title {
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.nav-brand__subtitle {
+  font-size: 0.8rem;
+  color: var(--text-muted);
 }
 
 .nav-links {
   display: flex;
-  gap: 20px;
+  gap: 0.8rem;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .nav-links a {
-  color: #ecf0f1;
-  text-decoration: none;
-  padding: 10px 15px;
-  border-radius: 4px;
-  transition: background 0.3s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text);
+  padding: 0.75rem 1rem;
+  border-radius: 999px;
 }
 
 .nav-links a:hover {
-  background: #34495e;
+  background: rgba(205, 124, 54, 0.12);
 }
 
 .nav-links a.active {
-  background: #42b883;
+  background: rgba(205, 124, 54, 0.18);
+  color: var(--accent-strong);
 }
 
-.logout-btn {
-  background: #e74c3c;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  margin-left: 10px;
+.nav-pill {
+  min-width: 1.45rem;
+  padding: 0.12rem 0.42rem;
+  border-radius: 999px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 0.78rem;
+  text-align: center;
 }
 
-.logout-btn:hover {
-  background: #c0392b;
+.nav-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
-/* 深色模式支持 */
-@media (prefers-color-scheme: dark) {
-  .navbar {
-    background: #1a1a1a;
+.status-chip,
+.user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.68rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid rgba(123, 92, 55, 0.12);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.status-chip::before {
+  content: '';
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: var(--warn);
+}
+
+.status-chip[data-online='true']::before {
+  background: var(--success);
+}
+
+.app-content {
+  padding: 2rem 1.5rem 3rem;
+}
+
+.boot-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+}
+
+.boot-screen__panel {
+  width: min(100%, 28rem);
+  padding: 2rem;
+  border-radius: 28px;
+  border: 1px solid var(--line);
+  background: rgba(255, 250, 244, 0.92);
+  box-shadow: var(--shadow-soft);
+}
+
+.boot-screen__eyebrow {
+  margin: 0 0 0.5rem;
+  font-size: 0.76rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+@media (max-width: 900px) {
+  .navbar,
+  .nav-links,
+  .nav-meta {
+    flex-direction: column;
+    align-items: stretch;
   }
 
-  .nav-links a:hover {
-    background: #333;
+  .nav-meta {
+    width: 100%;
+  }
+
+  .app-content {
+    padding-inline: 1rem;
   }
 }
 </style>

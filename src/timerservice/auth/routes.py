@@ -1,9 +1,9 @@
 """认证路由模块"""
-from flask import Blueprint, request, jsonify, g, session
+from flask import Blueprint, request, jsonify, g
 
 from src.timerservice.db import SessionLocal
-from src.timerservice.auth.jwt import generate_jwt
-from src.timerservice.auth.service import register_user, authenticate_user
+from src.timerservice.auth.jwt import generate_jwt, require_auth
+from src.timerservice.auth.service import register_user, authenticate_user, get_user_by_id
 
 # 创建认证蓝图
 auth_bp = Blueprint("auth", __name__)
@@ -104,6 +104,7 @@ def login():
 
 
 @auth_bp.route("/me", methods=["GET"])
+@require_auth
 def me():
     """
     获取当前用户信息（需要认证）
@@ -114,29 +115,9 @@ def me():
             "username": "string"
         }
     """
-    from src.timerservice.auth.jwt import require_auth
-    from src.timerservice.auth.service import get_user_by_id
-
-    # 这里需要装饰器，但 Flask 装饰器不能在函数内部使用
-    # 所以我们手动验证
-    auth_header = request.headers.get("Authorization")
-    if not auth_header:
-        return jsonify({"error": "Missing authorization header"}), 401
-
-    parts = auth_header.split()
-    if len(parts) != 2 or parts[0] != "Bearer":
-        return jsonify({"error": "Invalid authorization format"}), 401
-
-    try:
-        from src.timerservice.auth.jwt import verify_jwt
-        payload = verify_jwt(parts[1])
-        user_id = payload["user_id"]
-    except Exception:
-        return jsonify({"error": "Invalid token"}), 401
-
     db = SessionLocal()
     try:
-        user = get_user_by_id(db, user_id)
+        user = get_user_by_id(db, g.user_id)
         if not user:
             return jsonify({"error": "User not found"}), 404
 

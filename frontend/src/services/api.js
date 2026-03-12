@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { clearStoredSession, getStoredToken } from './sessionStorage'
 
 const API_BASE = '/api'
 
@@ -22,10 +23,16 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   response => response.data,
   error => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      window.location.href = '/login'
+    const requestUrl = error.config?.url || ''
+    const isAuthRequest = requestUrl.includes('/auth/login') || requestUrl.includes('/auth/register')
+    const hasStoredToken = Boolean(getStoredToken())
+
+    if (error.response?.status === 401 && hasStoredToken && !isAuthRequest) {
+      clearStoredSession()
+      window.dispatchEvent(new Event('session-expired'))
+      if (window.location.pathname !== '/login') {
+        window.location.assign('/login')
+      }
     }
     return Promise.reject(error)
   }

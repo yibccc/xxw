@@ -3,7 +3,7 @@ import json
 import time
 import queue
 from datetime import datetime
-from flask import Blueprint, request, g, Response, stream_with_context
+from flask import Blueprint, request, Response, stream_with_context
 
 from src.timerservice.auth.jwt import verify_jwt
 from src.timerservice.sse.hub import sse_hub, SSEConnection
@@ -84,10 +84,6 @@ def stream():
         parts = auth_header.split()
         if len(parts) == 2 and parts[0] == "Bearer":
             token = parts[1]
-
-    # 如果请求头中没有，尝试从查询参数获取（EventSource 支持）
-    if not token:
-        token = request.args.get("token")
 
     if not token:
         return {"error": "Missing authorization token"}, 401

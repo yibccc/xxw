@@ -3,6 +3,7 @@ import Login from './views/Login.vue'
 import Register from './views/Register.vue'
 import Timers from './views/Timers.vue'
 import Events from './views/Events.vue'
+import { getStoredToken } from './services/sessionStorage'
 
 const routes = [
   { path: '/', redirect: '/timers' },
@@ -19,7 +20,7 @@ const router = createRouter({
 
 // 导航守卫
 router.beforeEach((to, from, next) => {
-  const token = localStorage.getItem('token')
+  const token = getStoredToken()
 
   if (to.meta.requiresAuth && !token) {
     next('/login')

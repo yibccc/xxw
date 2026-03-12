@@ -1,9 +1,12 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { authService } from '../services/api'
+
+import AuthCard from '../components/ui/AuthCard.vue'
+import { pushToast, useSession } from '../composables/useSession'
 
 const router = useRouter()
+const { loginWithPassword } = useSession()
 const username = ref('')
 const password = ref('')
 const error = ref('')
@@ -13,9 +16,8 @@ const login = async () => {
   error.value = ''
   loading.value = true
   try {
-    const response = await authService.login(username.value, password.value)
-    localStorage.setItem('token', response.token)
-    localStorage.setItem('user', JSON.stringify({ id: response.user_id, username: response.username }))
+    await loginWithPassword(username.value, password.value)
+    pushToast({ tone: 'accent', title: '登录成功', message: '欢迎回来。' })
     router.push('/timers')
   } catch (err) {
     error.value = err.response?.data?.error || '登录失败'
@@ -30,109 +32,39 @@ const goToRegister = () => {
 </script>
 
 <template>
-  <div class="login-container">
-    <h1>登录</h1>
-    <div class="form">
-      <div class="form-group">
-        <label>用户名</label>
-        <input v-model="username" type="text" placeholder="请输入用户名" />
-      </div>
-      <div class="form-group">
-        <label>密码</label>
-        <input v-model="password" type="password" placeholder="请输入密码" />
-      </div>
-      <div v-if="error" class="error">{{ error }}</div>
-      <button @click="login" :disabled="loading">
-        {{ loading ? '登录中...' : '登录' }}
-      </button>
-      <div class="link" @click="goToRegister">没有账号？去注册</div>
-    </div>
+  <div class="auth-layout">
+    <AuthCard title="登录" subtitle="继续管理定时器、事件通知和实时提醒。">
+      <form class="stack-lg" @submit.prevent="login">
+        <label class="field">
+          <span>用户名</span>
+          <input v-model="username" type="text" placeholder="请输入用户名" />
+        </label>
+        <label class="field">
+          <span>密码</span>
+          <input v-model="password" type="password" placeholder="请输入密码" />
+        </label>
+        <p v-if="error" class="form-error">{{ error }}</p>
+        <button class="button" type="submit" :disabled="loading">
+          {{ loading ? '登录中...' : '登录' }}
+        </button>
+      </form>
+      <template #footer>
+        <button class="button ghost auth-link" type="button" @click="goToRegister">没有账号？去注册</button>
+      </template>
+    </AuthCard>
   </div>
 </template>
 
 <style scoped>
-.login-container {
-  max-width: 400px;
-  margin: 100px auto;
-  padding: 30px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
+.auth-layout {
+  min-height: calc(100vh - 3rem);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
 }
 
-h1 {
-  text-align: center;
-  margin-bottom: 30px;
-}
-
-.form-group {
-  margin-bottom: 20px;
-}
-
-label {
-  display: block;
-  margin-bottom: 8px;
-}
-
-input {
+.auth-link {
   width: 100%;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-}
-
-.error {
-  color: red;
-  margin-bottom: 15px;
-}
-
-button {
-  width: 100%;
-  padding: 12px;
-  background: #42b883;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-button:disabled {
-  background: #ccc;
-}
-
-.link {
-  text-align: center;
-  margin-top: 15px;
-  color: #42b883;
-  cursor: pointer;
-}
-
-/* 深色模式支持 */
-@media (prefers-color-scheme: dark) {
-  .login-container {
-    background: #1a1a1a;
-    border-color: #333;
-  }
-
-  h1 {
-    color: #fff;
-  }
-
-  label {
-    color: #fff;
-  }
-
-  input {
-    background: #333;
-    border-color: #555;
-    color: #fff;
-  }
-
-  input::placeholder {
-    color: #999;
-  }
-
-  .link {
-    color: #42b883;
-  }
+  justify-content: center;
 }
 </style>

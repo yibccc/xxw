@@ -1,6 +1,9 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+
+import AuthCard from '../components/ui/AuthCard.vue'
+import { pushToast } from '../composables/useSession'
 import { authService } from '../services/api'
 
 const router = useRouter()
@@ -14,6 +17,7 @@ const register = async () => {
   loading.value = true
   try {
     await authService.register(username.value, password.value)
+    pushToast({ tone: 'accent', title: '注册成功', message: '现在可以登录并创建定时器。' })
     router.push('/login')
   } catch (err) {
     error.value = err.response?.data?.error || '注册失败'
@@ -28,109 +32,39 @@ const goToLogin = () => {
 </script>
 
 <template>
-  <div class="register-container">
-    <h1>注册</h1>
-    <div class="form">
-      <div class="form-group">
-        <label>用户名</label>
-        <input v-model="username" type="text" placeholder="请输入用户名" />
-      </div>
-      <div class="form-group">
-        <label>密码</label>
-        <input v-model="password" type="password" placeholder="请输入密码" />
-      </div>
-      <div v-if="error" class="error">{{ error }}</div>
-      <button @click="register" :disabled="loading">
-        {{ loading ? '注册中...' : '注册' }}
-      </button>
-      <div class="link" @click="goToLogin">已有账号？去登录</div>
-    </div>
+  <div class="auth-layout">
+    <AuthCard title="注册" subtitle="创建一个账号，开始管理一次性和每日定时器。">
+      <form class="stack-lg" @submit.prevent="register">
+        <label class="field">
+          <span>用户名</span>
+          <input v-model="username" type="text" placeholder="请输入用户名" />
+        </label>
+        <label class="field">
+          <span>密码</span>
+          <input v-model="password" type="password" placeholder="请输入密码" />
+        </label>
+        <p v-if="error" class="form-error">{{ error }}</p>
+        <button class="button" type="submit" :disabled="loading">
+          {{ loading ? '注册中...' : '注册' }}
+        </button>
+      </form>
+      <template #footer>
+        <button class="button ghost auth-link" type="button" @click="goToLogin">已有账号？去登录</button>
+      </template>
+    </AuthCard>
   </div>
 </template>
 
 <style scoped>
-.register-container {
-  max-width: 400px;
-  margin: 100px auto;
-  padding: 30px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
+.auth-layout {
+  min-height: calc(100vh - 3rem);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
 }
 
-h1 {
-  text-align: center;
-  margin-bottom: 30px;
-}
-
-.form-group {
-  margin-bottom: 20px;
-}
-
-label {
-  display: block;
-  margin-bottom: 8px;
-}
-
-input {
+.auth-link {
   width: 100%;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-}
-
-.error {
-  color: red;
-  margin-bottom: 15px;
-}
-
-button {
-  width: 100%;
-  padding: 12px;
-  background: #42b883;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-button:disabled {
-  background: #ccc;
-}
-
-.link {
-  text-align: center;
-  margin-top: 15px;
-  color: #42b883;
-  cursor: pointer;
-}
-
-/* 深色模式支持 */
-@media (prefers-color-scheme: dark) {
-  .register-container {
-    background: #1a1a1a;
-    border-color: #333;
-  }
-
-  h1 {
-    color: #fff;
-  }
-
-  label {
-    color: #fff;
-  }
-
-  input {
-    background: #333;
-    border-color: #555;
-    color: #fff;
-  }
-
-  input::placeholder {
-    color: #999;
-  }
-
-  .link {
-    color: #42b883;
-  }
+  justify-content: center;
 }
 </style>

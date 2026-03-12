@@ -1,172 +1,200 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { timerService, eventService } from '../services/api'
-import sseClient from '../components/SSEClient'
+
+import BaseModal from '../components/ui/BaseModal.vue'
+import PageHeader from '../components/ui/PageHeader.vue'
+import { useSession } from '../composables/useSession'
+import { timerService } from '../services/api'
 
 const router = useRouter()
+const { pushToast } = useSession()
 
 const timers = ref([])
-const showCreateDialog = ref(false)
-const showEditDialog = ref(false)
-const editingTimer = ref(null)
-const newTimer = ref({
-  name: '',
-  type: 'once',
-  delay_hours: 0,
-  delay_minutes: 5,
-  delay_seconds: 0,
-  time_of_day: '00:00:00'
-})
-const unreadCount = ref(0)
+const loading = ref(false)
+const createOpen = ref(false)
+const editOpen = ref(false)
+const deleteTarget = ref(null)
+const editForm = ref(null)
 const now = ref(Date.now())
 let countdownInterval = null
 
-// 计算倒计时
+const createForm = ref(createDefaultTimerForm())
+
+function createDefaultTimerForm() {
+  return {
+    name: '',
+    type: 'once',
+    delay_hours: 0,
+    delay_minutes: 5,
+    delay_seconds: 0,
+    time_of_day: '09:00:00',
+  }
+}
+
 function getCountdown(nextFireAt) {
-  if (!nextFireAt) return ''
+  if (!nextFireAt) return '待计算'
   const diff = new Date(nextFireAt).getTime() - now.value
   if (diff <= 0) return '即将触发'
 
-  const seconds = Math.floor(diff / 1000)
-  const hours = Math.floor(seconds / 3600)
-  const minutes = Math.floor((seconds % 3600) / 60)
-  const secs = seconds % 60
+  const totalSeconds = Math.floor(diff / 1000)
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
 
-  if (hours > 0) {
-    return `${hours}小时${minutes}分${secs}秒`
-  } else if (minutes > 0) {
-    return `${minutes}分${secs}秒`
-  } else {
-    return `${secs}秒`
-  }
+  if (hours > 0) return `${hours}小时 ${minutes}分 ${seconds}秒`
+  if (minutes > 0) return `${minutes}分 ${seconds}秒`
+  return `${seconds}秒`
 }
 
-// 格式化下次触发时间
-function formatNextFire(nextFireAt) {
-  if (!nextFireAt) return ''
-  return new Date(nextFireAt).toLocaleString()
+function formatDateTime(value) {
+  return value ? new Date(value).toLocaleString() : '未安排'
+}
+
+function formatType(type) {
+  return type === 'daily' ? '每日定时' : '一次性'
+}
+
+function formatStatus(status) {
+  if (status === 'enabled') return '已启用'
+  if (status === 'completed') return '已完成'
+  if (status === 'deleted') return '已删除'
+  return status
+}
+
+function summarizeTimer(timer) {
+  if (timer.type === 'daily') {
+    return `每天 ${timer.time_of_day} 触发`
+  }
+  return `延迟 ${timer.delay_seconds} 秒后触发`
+}
+
+function toCreatePayload(form) {
+  const payload = {
+    name: form.name.trim(),
+    type: form.type,
+  }
+
+  if (payload.type === 'once') {
+    payload.delay_seconds =
+      Number(form.delay_hours || 0) * 3600 +
+      Number(form.delay_minutes || 0) * 60 +
+      Number(form.delay_seconds || 0)
+  } else {
+    payload.time_of_day = form.time_of_day
+  }
+
+  return payload
+}
+
+function validateCreatePayload(payload) {
+  if (!payload.name) {
+    return '请输入定时器名称'
+  }
+
+  if (payload.type === 'once' && (payload.delay_seconds < 1 || payload.delay_seconds > 86400)) {
+    return '一次性定时器的延迟必须在 1 到 86400 秒之间'
+  }
+
+  if (payload.type === 'daily' && !payload.time_of_day) {
+    return '请选择每日触发时间'
+  }
+
+  return ''
 }
 
 async function loadTimers() {
+  loading.value = true
   try {
     timers.value = await timerService.list()
-  } catch (err) {
-    console.error('加载定时器失败:', err)
+  } catch (error) {
+    pushToast({ tone: 'danger', title: '加载失败', message: error.response?.data?.error || '无法获取定时器列表。' })
+  } finally {
+    loading.value = false
   }
 }
 
-async function loadUnreadCount() {
+function openCreateModal() {
+  createForm.value = createDefaultTimerForm()
+  createOpen.value = true
+}
+
+async function submitCreate() {
+  const payload = toCreatePayload(createForm.value)
+  const validationError = validateCreatePayload(payload)
+  if (validationError) {
+    pushToast({ tone: 'danger', title: '创建失败', message: validationError })
+    return
+  }
+
   try {
-    // 获取未读事件数量
-    const events = await eventService.list({ unread_only: 1 })
-    unreadCount.value = events.length
-  } catch (err) {
-    console.error('获取未读数量失败:', err)
+    await timerService.create(payload)
+    createOpen.value = false
+    await loadTimers()
+    pushToast({ tone: 'accent', title: '已创建定时器', message: `“${payload.name}” 已加入调度。` })
+  } catch (error) {
+    pushToast({ tone: 'danger', title: '创建失败', message: error.response?.data?.error || '请稍后重试。' })
   }
 }
 
-async function createTimer() {
+function openEditModal(timer) {
+  editForm.value = {
+    id: timer.id,
+    name: timer.name,
+    type: timer.type,
+    delay_seconds: timer.delay_seconds ?? 300,
+    time_of_day: timer.time_of_day ?? '09:00:00',
+  }
+  editOpen.value = true
+}
+
+async function submitEdit() {
+  if (!editForm.value) return
+
+  const payload = {}
+  if (editForm.value.type === 'once') {
+    payload.delay_seconds = Number(editForm.value.delay_seconds)
+  } else {
+    payload.time_of_day = editForm.value.time_of_day
+  }
+
   try {
-    const data = { ...newTimer.value }
-    // 将时分秒转换为秒
-    if (data.type === 'once') {
-      data.delay_seconds = data.delay_hours * 3600 + data.delay_minutes * 60 + data.delay_seconds
-      delete data.delay_hours
-      delete data.delay_minutes
-      delete data.time_of_day
-    }
-    await timerService.create(data)
-    showCreateDialog.value = false
-    newTimer.value = {
-      name: '',
-      type: 'once',
-      delay_hours: 0,
-      delay_minutes: 5,
-      delay_seconds: 0,
-      time_of_day: '00:00:00'
-    }
-    loadTimers()
-  } catch (err) {
-    alert(err.response?.data?.error || '创建失败')
+    await timerService.update(editForm.value.id, payload)
+    editOpen.value = false
+    await loadTimers()
+    pushToast({ tone: 'accent', title: '已更新定时器', message: `“${editForm.value.name}” 的触发设置已更新。` })
+  } catch (error) {
+    pushToast({ tone: 'danger', title: '更新失败', message: error.response?.data?.error || '请稍后重试。' })
   }
 }
 
-async function updateTimer(timer) {
+function requestDelete(timer) {
+  deleteTarget.value = timer
+}
+
+async function confirmDelete() {
+  if (!deleteTarget.value) return
+
   try {
-    const data = {
-      status: timer.status
-    }
-    if (timer.type === 'once' && editingTimer.value.delay_seconds) {
-      data.delay_seconds = editingTimer.value.delay_seconds
-    }
-    if (timer.type === 'daily' && editingTimer.value.time_of_day) {
-      data.time_of_day = editingTimer.value.time_of_day
-    }
-    await timerService.update(timer.id, data)
-    showEditDialog.value = false
-    loadTimers()
-  } catch (err) {
-    alert(err.response?.data?.error || '更新失败')
+    await timerService.delete(deleteTarget.value.id)
+    pushToast({ tone: 'accent', title: '已删除定时器', message: `“${deleteTarget.value.name}” 已移出列表。` })
+    deleteTarget.value = null
+    await loadTimers()
+  } catch (error) {
+    pushToast({ tone: 'danger', title: '删除失败', message: error.response?.data?.error || '请稍后重试。' })
   }
 }
 
-async function deleteTimer(timer) {
-  if (confirm(`确定要删除定时器 "${timer.name}" 吗？`)) {
-    try {
-      await timerService.delete(timer.id)
-      loadTimers()
-    } catch (err) {
-      alert(err.response?.data?.error || '删除失败')
-    }
-  }
-}
-
-function openCreateDialog() {
-  showCreateDialog.value = true
-}
-
-function openEditDialog(timer) {
-  editingTimer.value = { ...timer }
-  showEditDialog.value = true
-}
-
-
-function goToEvents() {
-  router.push('/events')
-}
-
-// 保存回调引用，用于移除
-async function handleTimerFired(data) {
-  alert(`定时器 "${data.timer_name}" 已触发！`)
-  // 点击确定后自动标记为已读并刷新列表
-  try {
-    await eventService.ack(data.event_id)
-    unreadCount.value = Math.max(0, unreadCount.value - 1)
-    // 刷新定时器列表以更新下次触发时间
-    loadTimers()
-  } catch (err) {
-    console.error('标记已读失败:', err)
-  }
-}
+const activeTimers = computed(() => timers.value.filter((timer) => timer.status === 'enabled').length)
 
 onMounted(() => {
   loadTimers()
-  loadUnreadCount()
-  sseClient.connect()
-
-  // 每秒更新倒计时
-  countdownInterval = setInterval(() => {
+  countdownInterval = window.setInterval(() => {
     now.value = Date.now()
   }, 1000)
-
-  // 监听 SSE 事件（保存引用以便移除）
-  sseClient.on('timer_fired', handleTimerFired)
 })
 
 onUnmounted(() => {
-  sseClient.off('timer_fired', handleTimerFired)  // 移除监听器
-  sseClient.disconnect()
   if (countdownInterval) {
     clearInterval(countdownInterval)
   }
@@ -174,328 +202,263 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="timers-page">
-    <div class="header">
-      <h1>定时器</h1>
-      <div class="actions">
-        <div v-if="unreadCount > 0" class="unread-badge" @click="goToEvents">
-          {{ unreadCount }} 条未读事件
-        </div>
-        <button @click="openCreateDialog">+ 新建定时器</button>
-      </div>
-    </div>
+  <div class="page-shell">
+    <PageHeader
+      title="定时器"
+      :description="`当前共有 ${timers.length} 个定时器，其中 ${activeTimers} 个正在等待触发。`"
+    >
+      <template #actions>
+        <button class="button ghost" type="button" @click="router.push('/events')">查看事件</button>
+        <button class="button" type="button" @click="openCreateModal">新建定时器</button>
+      </template>
+    </PageHeader>
 
-    <div v-if="timers.length === 0" class="empty">
-      <p>暂无定时器</p>
-    </div>
+    <section v-if="loading" class="panel empty-state">
+      <p>正在加载定时器…</p>
+    </section>
 
-    <div class="timer-list">
-      <div v-for="timer in timers" :key="timer.id" class="timer-item">
-        <div class="timer-info">
-          <h3>{{ timer.name }}</h3>
-          <div class="meta">
-            <span class="type">{{ timer.type }}</span>
-            <span class="status" :class="timer.status">{{ timer.status }}</span>
+    <section v-else-if="timers.length === 0" class="panel empty-state">
+      <p>还没有定时器。先创建一个，之后你会在事件页收到触发记录。</p>
+      <button class="button" type="button" @click="openCreateModal">立即创建</button>
+    </section>
+
+    <section v-else class="timer-grid">
+      <article v-for="timer in timers" :key="timer.id" class="timer-card">
+        <div class="timer-card__main">
+          <div class="timer-card__title-row">
+            <h2>{{ timer.name }}</h2>
+            <span class="status-badge" :data-status="timer.status">{{ formatStatus(timer.status) }}</span>
           </div>
-          <div v-if="timer.next_fire_at && timer.status === 'enabled'" class="next-fire">
-            <div>下次触发: {{ formatNextFire(timer.next_fire_at) }}</div>
-            <div class="countdown">倒计时: {{ getCountdown(timer.next_fire_at) }}</div>
+          <div class="inline-meta">
+            <span class="pill">{{ formatType(timer.type) }}</span>
+            <span>{{ summarizeTimer(timer) }}</span>
+          </div>
+          <div class="timer-card__timing">
+            <div>
+              <span class="label">下次触发</span>
+              <strong>{{ formatDateTime(timer.next_fire_at) }}</strong>
+            </div>
+            <div>
+              <span class="label">倒计时</span>
+              <strong>{{ timer.status === 'enabled' ? getCountdown(timer.next_fire_at) : '已停止调度' }}</strong>
+            </div>
           </div>
         </div>
-        <div class="timer-actions">
-          <button @click="openEditDialog(timer)">编辑</button>
-          <button @click="deleteTimer(timer)" class="delete">删除</button>
+        <div class="timer-card__actions">
+          <button class="button ghost" type="button" @click="openEditModal(timer)">编辑</button>
+          <button class="button danger" type="button" @click="requestDelete(timer)">删除</button>
         </div>
-      </div>
-    </div>
+      </article>
+    </section>
 
-    <!-- 创建定时器对话框 -->
-    <div v-if="showCreateDialog" class="dialog-overlay" @click.self="showCreateDialog = false">
-      <div class="dialog">
-        <h2>新建定时器</h2>
-        <div class="form-group">
-          <label>名称</label>
-          <input v-model="newTimer.name" placeholder="定时器名称" />
-        </div>
-        <div class="form-group">
-          <label>类型</label>
-          <select v-model="newTimer.type">
+    <BaseModal
+      :open="createOpen"
+      title="新建定时器"
+      description="支持一次性延迟触发和每日固定时间触发。"
+      @close="createOpen = false"
+    >
+      <div class="stack-lg">
+        <label class="field">
+          <span>名称</span>
+          <input v-model="createForm.name" placeholder="例如：每日站会提醒" />
+        </label>
+        <label class="field">
+          <span>类型</span>
+          <select v-model="createForm.type">
             <option value="once">一次性</option>
             <option value="daily">每日定时</option>
           </select>
-        </div>
-        <div v-if="newTimer.type === 'once'" class="form-group time-input-group">
-          <label>延迟时间</label>
-          <div class="time-inputs">
-            <div class="time-input-item">
-              <input v-model.number="newTimer.delay_hours" type="number" min="0" max="23" />
-              <span>时</span>
-            </div>
-            <div class="time-input-item">
-              <input v-model.number="newTimer.delay_minutes" type="number" min="0" max="59" />
-              <span>分</span>
-            </div>
-            <div class="time-input-item">
-              <input v-model.number="newTimer.delay_seconds" type="number" min="0" max="59" />
+        </label>
+
+        <div v-if="createForm.type === 'once'" class="field">
+          <span>延迟时间</span>
+          <div class="time-grid">
+            <label class="field">
+              <span>小时</span>
+              <input v-model.number="createForm.delay_hours" type="number" min="0" max="23" />
+            </label>
+            <label class="field">
+              <span>分钟</span>
+              <input v-model.number="createForm.delay_minutes" type="number" min="0" max="59" />
+            </label>
+            <label class="field">
               <span>秒</span>
-            </div>
+              <input v-model.number="createForm.delay_seconds" type="number" min="0" max="59" />
+            </label>
           </div>
         </div>
-        <div v-if="newTimer.type === 'daily'" class="form-group">
-          <label>触发时间 (HH:MM:SS)</label>
-          <input v-model="newTimer.time_of_day" type="time" step="1" />
-        </div>
-        <div class="dialog-actions">
-          <button @click="showCreateDialog = false">取消</button>
-          <button @click="createTimer">创建</button>
-        </div>
-      </div>
-    </div>
 
-    <!-- 编辑定时器对话框 -->
-    <div v-if="showEditDialog && editingTimer" class="dialog-overlay" @click.self="showEditDialog = false">
-      <div class="dialog">
-        <h2>编辑定时器</h2>
-        <div v-if="editingTimer.type === 'once'" class="form-group">
-          <label>延迟（秒）</label>
-          <input v-model.number="editingTimer.delay_seconds" type="number" min="1" max="86400" />
-        </div>
-        <div v-if="editingTimer.type === 'daily'" class="form-group">
-          <label>触发时间 (HH:MM:SS)</label>
-          <input v-model="editingTimer.time_of_day" type="time" step="1" />
-        </div>
-        <div class="dialog-actions">
-          <button @click="showEditDialog = false">取消</button>
-          <button @click="updateTimer(editingTimer)">保存</button>
-        </div>
+        <label v-else class="field">
+          <span>触发时间</span>
+          <input v-model="createForm.time_of_day" type="time" step="1" />
+        </label>
       </div>
-    </div>
+      <template #actions>
+        <button class="button ghost" type="button" @click="createOpen = false">取消</button>
+        <button class="button" type="button" @click="submitCreate">创建</button>
+      </template>
+    </BaseModal>
+
+    <BaseModal
+      :open="editOpen"
+      title="编辑定时器"
+      description="这里只调整触发参数，不修改数据库结构。"
+      @close="editOpen = false"
+    >
+      <div v-if="editForm" class="stack-lg">
+        <div class="info-row">
+          <span class="label">名称</span>
+          <strong>{{ editForm.name }}</strong>
+        </div>
+        <div v-if="editForm.type === 'once'" class="field">
+          <span>延迟秒数</span>
+          <input v-model.number="editForm.delay_seconds" type="number" min="1" max="86400" />
+        </div>
+        <label v-else class="field">
+          <span>触发时间</span>
+          <input v-model="editForm.time_of_day" type="time" step="1" />
+        </label>
+      </div>
+      <template #actions>
+        <button class="button ghost" type="button" @click="editOpen = false">取消</button>
+        <button class="button" type="button" @click="submitEdit">保存</button>
+      </template>
+    </BaseModal>
+
+    <BaseModal
+      :open="Boolean(deleteTarget)"
+      title="删除定时器"
+      description="删除后定时器将从当前列表中移除，已记录的事件不会被修改。"
+      width="480px"
+      @close="deleteTarget = null"
+    >
+      <p v-if="deleteTarget" class="modal-copy">
+        确认删除“{{ deleteTarget.name }}”？
+      </p>
+      <template #actions>
+        <button class="button ghost" type="button" @click="deleteTarget = null">取消</button>
+        <button class="button danger" type="button" @click="confirmDelete">确认删除</button>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
 <style scoped>
-.timers-page {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 20px;
+.timer-grid {
+  display: grid;
+  gap: 1rem;
 }
 
-.header {
+.timer-card {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
+  gap: 1.25rem;
+  padding: 1.5rem;
+  border-radius: 24px;
+  border: 1px solid var(--line);
+  background: rgba(255, 250, 244, 0.92);
+  box-shadow: var(--shadow-soft);
 }
 
-.actions {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.unread-badge {
-  background: #ff5722;
-  color: white;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-button {
-  padding: 8px 16px;
-  background: #42b883;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-button.delete {
-  background: #f44336;
-}
-
-.timer-list {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.timer-item {
-  display: flex;
-  justify-content: space-between;
-  padding: 20px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-}
-
-.timer-info {
+.timer-card__main {
   flex: 1;
 }
 
-.timer-info h3 {
-  margin: 0 0 10px 0;
-}
-
-.meta {
+.timer-card__title-row {
   display: flex;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.type, .status {
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-}
-
-.type {
-  background: #e3f2fd;
-  color: #1565c0;
-}
-
-.status {
-  color: white;
-}
-
-.status.enabled {
-  background: #4caf50;
-}
-
-.status.paused {
-  background: #ff9800;
-}
-
-.status.completed {
-  background: #9e9e9e;
-}
-
-.next-fire {
-  margin-top: 8px;
-}
-
-.countdown {
-  color: #ff5722;
-  font-weight: bold;
-  font-size: 14px;
-  margin-top: 4px;
-}
-
-.timer-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.dialog-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
+  justify-content: space-between;
+  gap: 1rem;
   align-items: center;
-  z-index: 1000;
 }
 
-.dialog {
-  background: white;
-  padding: 30px;
-  border-radius: 8px;
-  min-width: 400px;
+.timer-card__title-row h2 {
+  font-size: 1.2rem;
 }
 
-.form-group {
-  margin-bottom: 20px;
+.timer-card__timing {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin-top: 1rem;
 }
 
-.form-group label {
+.timer-card__timing > div {
+  padding: 0.9rem 1rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.68);
+  border: 1px solid rgba(123, 92, 55, 0.08);
+}
+
+.timer-card__actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.86rem;
+  background: rgba(201, 126, 62, 0.12);
+  color: var(--accent-strong);
+}
+
+.status-badge[data-status='completed'] {
+  background: rgba(96, 128, 99, 0.14);
+  color: #385d3c;
+}
+
+.status-badge[data-status='deleted'] {
+  background: rgba(176, 67, 46, 0.12);
+  color: var(--danger);
+}
+
+.pill {
+  display: inline-flex;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  background: rgba(83, 120, 131, 0.12);
+  color: var(--ink-soft);
+}
+
+.label {
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 0.35rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
 }
 
-.form-group input,
-.form-group select {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+.time-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
 }
 
-.dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
+.info-row {
+  padding: 1rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(123, 92, 55, 0.08);
 }
 
-.empty {
-  text-align: center;
-  color: #999;
+.modal-copy {
+  margin: 0;
+  color: var(--text-muted);
 }
 
-/* 时分秒选择器 */
-.time-input-group label {
-  display: block;
-  margin-bottom: 8px;
-}
-
-.time-inputs {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.time-input-item {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.time-input-item input {
-  width: 60px;
-  padding: 8px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-}
-
-.time-input-item span {
-  color: #666;
-}
-
-/* 深色模式支持 */
-@media (prefers-color-scheme: dark) {
-  .dialog {
-    background: #1a1a1a;
-    color: #fff;
+@media (max-width: 760px) {
+  .timer-card,
+  .timer-card__title-row,
+  .timer-card__actions {
+    flex-direction: column;
+    align-items: stretch;
   }
 
-  .dialog h2 {
-    color: #fff;
-  }
-
-  .form-group label {
-    color: #fff;
-  }
-
-  .form-group input,
-  .form-group select {
-    background: #333;
-    border-color: #555;
-    color: #fff;
-  }
-
-  .form-group input::placeholder {
-    color: #999;
-  }
-
-  .time-input-item input {
-    background: #333;
-    border-color: #555;
-    color: #fff;
-  }
-
-  .time-input-item span {
-    color: #aaa;
+  .timer-card__timing,
+  .time-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

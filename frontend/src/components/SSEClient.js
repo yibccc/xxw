@@ -1,33 +1,39 @@
 class SSEClient {
   constructor() {
     this.abortController = null
+    this.reconnectTimer = null
     this.listeners = new Map()
     this.isConnected = false
+    this.shouldReconnect = false
   }
 
   async connect() {
-    if (this.abortController) {
-      this.disconnect()
-    }
+    if (this.abortController) return
 
     const token = localStorage.getItem('token')
     if (!token) {
-      console.error('No token found for SSE connection')
       return
     }
 
+    this.shouldReconnect = true
+    clearTimeout(this.reconnectTimer)
     this.abortController = new AbortController()
-    this.isConnected = true
 
     try {
       await this._fetchStream(token)
     } catch (error) {
-      console.error('SSE connection error:', error)
-      this.isConnected = false
-
-      // 5 秒后重连
-      if (this.abortController) {
-        setTimeout(() => this.connect(), 5000)
+      if (!this.abortController?.signal.aborted) {
+        console.error('SSE connection error:', error)
+        this.emit('__status__', 'error')
+      }
+    } finally {
+      this.abortController = null
+      if (this.isConnected) {
+        this.isConnected = false
+        this.emit('__status__', 'disconnected')
+      }
+      if (this.shouldReconnect) {
+        this.reconnectTimer = setTimeout(() => this.connect(), 5000)
       }
     }
   }
@@ -45,6 +51,9 @@ class SSEClient {
     if (!response.ok) {
       throw new Error(`SSE connection failed: ${response.status}`)
     }
+
+    this.isConnected = true
+    this.emit('__status__', 'connected')
 
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
@@ -67,43 +76,48 @@ class SSEClient {
   }
 
   _processBuffer(buffer) {
-    const lines = buffer.split('\n\n')
-    buffer = lines.pop() || ''
+    const blocks = buffer.split('\n\n')
+    const remainder = blocks.pop() || ''
 
-    for (const line of lines) {
-      if (!line.trim()) continue
+    for (const block of blocks) {
+      if (!block.trim() || block.startsWith(':')) continue
 
-      // 跳过注释行
-      if (line.startsWith(':')) continue
+      let eventName = null
+      let dataPayload = null
 
-      // 分别检查 event 和 data（不是 if-else，让两者都能被处理）
-      const eventMatch = line.match(/^event:\s*(.+)$/m)
-      const dataMatch = line.match(/^data:\s*(.+)$/m)
-
-      if (eventMatch) {
-        this.currentEvent = eventMatch[1]
+      for (const line of block.split('\n')) {
+        if (line.startsWith('event:')) {
+          eventName = line.slice(6).trim()
+        }
+        if (line.startsWith('data:')) {
+          dataPayload = line.slice(5).trim()
+        }
       }
 
-      // 独立的 if 判断，这样 data 行即使和 event 行在同一块中也能被处理
-      if (dataMatch && this.currentEvent) {
+      if (eventName && dataPayload) {
         try {
-          const data = JSON.parse(dataMatch[1])
-          this.emit(this.currentEvent, data)
-        } catch (e) {
-          console.error('[SSE] Failed to parse SSE data:', e)
+          this.emit(eventName, JSON.parse(dataPayload))
+        } catch (error) {
+          console.error('[SSE] Failed to parse SSE data:', error)
         }
       }
     }
 
-    return buffer
+    return remainder
   }
 
   disconnect() {
+    this.shouldReconnect = false
+    clearTimeout(this.reconnectTimer)
+
     if (this.abortController) {
       this.abortController.abort()
       this.abortController = null
     }
-    this.isConnected = false
+    if (this.isConnected) {
+      this.isConnected = false
+      this.emit('__status__', 'disconnected')
+    }
   }
 
   on(event, callback) {

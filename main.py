@@ -6,11 +6,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from src.timerservice.app import create_app
+from src.timerservice.runtime import start_runtime_services
 
 
 def main():
     """启动 Flask 应用"""
     app = create_app()
+    start_runtime_services()
 
     host = os.getenv("FLASK_HOST", "0.0.0.0")
     port = int(os.getenv("FLASK_PORT", "5000"))
