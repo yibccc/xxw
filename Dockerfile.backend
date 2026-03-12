@@ -38,19 +38,14 @@ COPY --from=frontend-builder /frontend/dist/ ./src/timerservice/static/
 COPY main.py ./
 COPY alembic.ini ./
 COPY alembic/ ./alembic/
+COPY docker/backend-entrypoint.sh ./docker/backend-entrypoint.sh
 COPY .env.production ./.env
+
+RUN chmod +x ./docker/backend-entrypoint.sh
 
 EXPOSE 5000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')" || exit 1
 
-CMD sh -c "python -c 'import time; import socket;
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM);
-while s.connect_ex((\"mysql\", 3306)):
-    print(\"Waiting for MySQL...\");
-    time.sleep(2);
-s.close();
-print(\"MySQL is ready!\")' && \
-uv run alembic upgrade head && \
-uv run python main.py"
+CMD ["./docker/backend-entrypoint.sh"]
