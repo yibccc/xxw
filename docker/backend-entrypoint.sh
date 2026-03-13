@@ -14,4 +14,12 @@ print("MySQL is ready!")
 PY
 
 uv run alembic upgrade head
-exec uv run python main.py
+exec uv run gunicorn \
+  --bind 0.0.0.0:5000 \
+  --workers 1 \
+  --threads 4 \
+  --worker-class gthread \
+  --timeout 120 \
+  --access-logfile - \
+  --error-logfile - \
+  src.timerservice.wsgi:app

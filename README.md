@@ -129,7 +129,7 @@ npm run build
 export FLASK_ENV=production
 
 # 启动服务
-uv run python main.py
+uv run gunicorn --bind 0.0.0.0:5000 --workers 1 --threads 4 --worker-class gthread src.timerservice.wsgi:app
 ```
 
 访问 `http://localhost:5000` 即可使用完整应用。
@@ -145,16 +145,16 @@ uv run python main.py
 
 ```bash
 # 启动所有服务
-docker-compose up -d
+docker compose up -d
 
 # 查看日志
-docker-compose logs -f
+docker compose logs -f
 
 # 停止服务
-docker-compose down
+docker compose down
 ```
 
-访问 `http://localhost:5000` 即可使用应用。
+访问入口仍然是 `http://localhost:5000`，但宿主机 `5000` 端口现在由 `nginx` 暴露，再反向代理到内部 `backend:5000`。后端不再直接暴露到宿主机。
 
 #### 数据持久化
 
@@ -163,13 +163,13 @@ MySQL 数据存储在 Docker 卷中，重启后数据不丢失。
 如需完全删除数据：
 
 ```bash
-docker-compose down -v
+docker compose down -v
 ```
 
 #### 重新构建
 
 ```bash
-docker-compose build --no-cache
+docker compose build --no-cache
 ```
 
 ## API 文档
