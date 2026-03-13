@@ -1,7 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="92d1145e-0a58-480d-9f51-5cd1b2f05e46" name="Changes" comment="" />
+    <list default="true" id="92d1145e-0a58-480d-9f51-5cd1b2f05e46" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/docs/USER_MANUAL.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/USER_MANUAL.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/plans/2026-03-11-timerservice-implementation-plan.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/plans/2026-03-12-backend-uv-docker-design.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/plans/2026-03-12-backend-uv-docker.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/plans/2026-03-12-compose-bundled-frontend.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/plans/2026-03-12-docker-compose-design.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/plans/2026-03-13-nginx-gunicorn-compose-design.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/plans/2026-03-13-nginx-gunicorn-compose.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/plans/2026-03-13-ui-and-runtime-refactor-design.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/plans/2026-03-13-ui-and-runtime-refactor.md" beforeDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
