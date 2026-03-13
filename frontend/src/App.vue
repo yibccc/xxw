@@ -8,7 +8,7 @@ import { useSession } from './composables/useSession'
 
 const route = useRoute()
 const router = useRouter()
-const { state, initializeSession, logout, acknowledgePendingAlert, removeToast, pushToast } = useSession()
+const { state, initializeSession, logout, acknowledgePendingAlert, pushToast } = useSession()
 
 const isAuthRoute = computed(() => ['/login', '/register'].includes(route.path))
 const showNav = computed(() => state.user && !isAuthRoute.value)
@@ -96,7 +96,7 @@ onMounted(() => {
       </template>
     </BaseModal>
 
-    <ToastStack :toasts="state.toasts" @dismiss="removeToast" />
+    <ToastStack :toasts="state.toasts" />
   </div>
 </template>
 

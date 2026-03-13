@@ -6,6 +6,7 @@ import BaseModal from '../components/ui/BaseModal.vue'
 import PageHeader from '../components/ui/PageHeader.vue'
 import { useSession } from '../composables/useSession'
 import { timerService } from '../services/api'
+import { getCountdownLabel, getExpiredEnabledTimerIds } from './timerState'
 
 const router = useRouter()
 const { pushToast } = useSession()
@@ -18,6 +19,8 @@ const deleteTarget = ref(null)
 const editForm = ref(null)
 const now = ref(Date.now())
 let countdownInterval = null
+let refreshingExpiredTimers = false
+const refreshedExpiredTimerIds = new Set()
 
 const createForm = ref(createDefaultTimerForm())
 
@@ -30,21 +33,6 @@ function createDefaultTimerForm() {
     delay_seconds: 0,
     time_of_day: '09:00:00',
   }
-}
-
-function getCountdown(nextFireAt) {
-  if (!nextFireAt) return '待计算'
-  const diff = new Date(nextFireAt).getTime() - now.value
-  if (diff <= 0) return '即将触发'
-
-  const totalSeconds = Math.floor(diff / 1000)
-  const hours = Math.floor(totalSeconds / 3600)
-  const minutes = Math.floor((totalSeconds % 3600) / 60)
-  const seconds = totalSeconds % 60
-
-  if (hours > 0) return `${hours}小时 ${minutes}分 ${seconds}秒`
-  if (minutes > 0) return `${minutes}分 ${seconds}秒`
-  return `${seconds}秒`
 }
 
 function formatDateTime(value) {
@@ -103,14 +91,41 @@ function validateCreatePayload(payload) {
   return ''
 }
 
-async function loadTimers() {
-  loading.value = true
+async function loadTimers({ background = false } = {}) {
+  if (!background) {
+    loading.value = true
+  }
   try {
     timers.value = await timerService.list()
   } catch (error) {
     pushToast({ tone: 'danger', title: '加载失败', message: error.response?.data?.error || '无法获取定时器列表。' })
   } finally {
-    loading.value = false
+    if (!background) {
+      loading.value = false
+    }
+  }
+}
+
+async function refreshExpiredTimers(currentNow) {
+  if (refreshingExpiredTimers) {
+    return
+  }
+
+  const expiredIds = getExpiredEnabledTimerIds(timers.value, currentNow).filter(
+    (id) => !refreshedExpiredTimerIds.has(id),
+  )
+
+  if (expiredIds.length === 0) {
+    return
+  }
+
+  expiredIds.forEach((id) => refreshedExpiredTimerIds.add(id))
+  refreshingExpiredTimers = true
+
+  try {
+    await loadTimers({ background: true })
+  } finally {
+    refreshingExpiredTimers = false
   }
 }
 
@@ -191,6 +206,7 @@ onMounted(() => {
   loadTimers()
   countdownInterval = window.setInterval(() => {
     now.value = Date.now()
+    refreshExpiredTimers(now.value)
   }, 1000)
 })
 
@@ -240,7 +256,7 @@ onUnmounted(() => {
             </div>
             <div>
               <span class="label">倒计时</span>
-              <strong>{{ timer.status === 'enabled' ? getCountdown(timer.next_fire_at) : '已停止调度' }}</strong>
+              <strong>{{ getCountdownLabel(timer, now) }}</strong>
             </div>
           </div>
         </div>
