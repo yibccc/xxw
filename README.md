@@ -111,29 +111,6 @@ npm run dev
 
 前端将运行在 `http://localhost:5173`
 
-## 生产部署
-
-### 构建前端
-
-```bash
-cd frontend
-npm run build
-```
-
-构建产物将输出到 `src/timerservice/static/`，由 Flask 托管。
-
-### 启动服务
-
-```bash
-# 设置环境变量
-export FLASK_ENV=production
-
-# 启动服务
-uv run gunicorn --bind 0.0.0.0:5000 --workers 1 --threads 4 --worker-class gthread src.timerservice.wsgi:app
-```
-
-访问 `http://localhost:5000` 即可使用完整应用。
-
 ### Docker 部署
 
 #### 前置要求
